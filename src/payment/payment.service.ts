@@ -43,7 +43,7 @@ export class PaymentService extends PaymentServiceAbstract {
                 {
                     headers: {
                         'Content-Type': 'application/json',
-                        Authorization: `Bearer ${this.configService.get<string>("CASH_APP_API_KEY")}`
+                        Authorization: `Bearer ${apiKey}`
                     }
                 }
             );
