@@ -25,38 +25,46 @@ export class PaymentService extends PaymentServiceAbstract {
     }
 
     async processPayment(context: Context): Promise<void> {
-        const paymentLink = await this.createCashAppPayment(1);
+        const paymentLink = await this.createPaymentLink(1);
         await context.reply(paymentLink ? `Complete your payment: ${paymentLink}` : 'Payment failed. Please try again later.');
-        await this.sendPaymentButtonContextReply(context);
     }
 
-    async createCashAppPayment(amount: number): Promise<string> {
+    async createPaymentLink(amount: number): Promise<string> {
         const apiKey = this.configService.get<string>("SQUARE_SANDBOX_ACCESS_TOKEN");
-        const applicationId = this.configService.get<string>("SQUARE_SANDBOX_APPLICATION_ID");
+        const locationId = await this.getLocationId();
 
-        if (!apiKey || !applicationId) {
+        if (!apiKey || !locationId) {
             console.error("Square API credentials are not provided");
             return null;
         }
 
         try {
             const response = await axios.post(
-                "https://connect.squareupsandbox.com/v2/payments",
+                "https://connect.squareupsandbox.com/v2/online-checkout/payment-links",
                 {
-                    source_id: "CASH_APP",
-                    amount_money: { amount: amount * 100, currency: "USD" },
                     idempotency_key: new Date().getTime().toString(),
-                    note: "Service payment",
-                    app_fee_money: { amount: 0, currency: "USD" }
+                    order: {
+                        location_id: locationId,
+                        line_items: [
+                            {
+                                name: "Service Payment",
+                                quantity: "1",
+                                base_price_money: { amount: amount * 100, currency: "USD" }
+                            }
+                        ]
+                    },
+                    checkout_options: {
+                        ask_for_shipping_address: false,
+                        redirect_url: "http://localhost:3000/payment/confirmation"
+                    }
                 },
                 {
-                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}`}
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` }
                 }
             );
-            console.log("Payment Response:", response.data);
-            return response.data?.payment?.payment_url ?? null;
+            return response.data?.payment_link?.url;
         } catch (error) {
-            console.error('Payment error:', error.response?.data ?? error.message);
+            console.error('Checkout error:', error.response?.data ?? error.message);
             return null;
         }
     }
@@ -69,5 +77,45 @@ export class PaymentService extends PaymentServiceAbstract {
                 ],
             },
         });
+    }
+
+    async getLocationId(): Promise<string | null> {
+        const apiKey = this.configService.get<string>("SQUARE_SANDBOX_ACCESS_TOKEN");
+        if (!apiKey) {
+            console.error("Square API credentials are not provided");
+            return null;
+        }
+
+        try {
+            const response = await axios.get("https://connect.squareupsandbox.com/v2/locations", {
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${apiKey}`
+                }
+            });
+
+            const locations = response.data?.locations;
+            return locations && locations.length > 0 ? locations[0].id : null;
+        } catch (error) {
+            console.error('Location fetch error:', error.response?.data ?? error.message);
+            return null;
+        }
+    }
+
+    async checkPaymentStatus(orderId: string): Promise<boolean> {
+        const apiKey = this.configService.get<string>("SQUARE_SANDBOX_ACCESS_TOKEN");
+        try {
+            const response = await axios.get(
+                `https://connect.squareupsandbox.com/v2/orders/${orderId}`,
+                {
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` }
+                }
+            );
+            const paymentStatus = response.data?.order?.state;
+            return paymentStatus === 'COMPLETED';
+        } catch (error) {
+            console.error('Payment status error:', error.response?.data ?? error.message);
+            return false;
+        }
     }
 }
