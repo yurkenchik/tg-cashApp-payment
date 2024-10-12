@@ -19,7 +19,7 @@ export class PaymentService extends PaymentServiceAbstract {
     async sendPaymentButton(context: Context): Promise<void> {
         await this.sendPaymentButtonContextReply(context);
         this.telegramBot.action('pay_1', async (context) => {
-            await context.reply('Processing your payment...');
+            await context.reply('Processing your payment from local...');
             await this.processPayment(context);
         });
     }
@@ -31,26 +31,32 @@ export class PaymentService extends PaymentServiceAbstract {
     }
 
     async createCashAppPayment(amount: number): Promise<string> {
-        const apiKey = this.configService.get<string>("CASH_APP_API_KEY");
-        if (!apiKey) {
-            console.error("CashApp API is not provided");
+        const apiKey = this.configService.get<string>("SQUARE_SANDBOX_ACCESS_TOKEN");
+        const applicationId = this.configService.get<string>("SQUARE_SANDBOX_APPLICATION_ID");
+
+        if (!apiKey || !applicationId) {
+            console.error("Square API credentials are not provided");
             return null;
         }
+
         try {
             const response = await axios.post(
-                "https://api.cash.app/v2/payments",
-                { amount, currency: "USD", note: "Service payment" },
+                "https://connect.squareupsandbox.com/v2/payments",
                 {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${apiKey}`
-                    }
+                    source_id: "CASH_APP",
+                    amount_money: { amount: amount * 100, currency: "USD" },
+                    idempotency_key: new Date().getTime().toString(),
+                    note: "Service payment",
+                    app_fee_money: { amount: 0, currency: "USD" }
+                },
+                {
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}`}
                 }
             );
             console.log("Payment Response:", response.data);
-            return response.data?.payment_url ?? null;
+            return response.data?.payment?.payment_url ?? null;
         } catch (error) {
-            console.error('Payment error:', error);
+            console.error('Payment error:', error.response?.data ?? error.message);
             return null;
         }
     }
