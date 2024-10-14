@@ -4,6 +4,7 @@ import axios from "axios";
 import {InjectBot} from "nestjs-telegraf";
 import {ConfigService} from "@nestjs/config";
 import {PaymentServiceAbstract} from "./payment.service.abstract";
+import {getPaymentData} from "../utils/get-payment-data";
 
 @Injectable()
 export class PaymentService extends PaymentServiceAbstract {
@@ -38,26 +39,12 @@ export class PaymentService extends PaymentServiceAbstract {
             return null;
         }
 
+        const paymentData = getPaymentData(amount, locationId);
+
         try {
             const response = await axios.post(
                 "https://connect.squareupsandbox.com/v2/online-checkout/payment-links",
-                {
-                    idempotency_key: new Date().getTime().toString(),
-                    order: {
-                        location_id: locationId,
-                        line_items: [
-                            {
-                                name: "Service Payment",
-                                quantity: "1",
-                                base_price_money: { amount: amount * 100, currency: "USD" }
-                            }
-                        ]
-                    },
-                    checkout_options: {
-                        ask_for_shipping_address: false,
-                        redirect_url: "http://localhost:3000/payment/confirmation"
-                    }
-                },
+                paymentData,
                 {
                     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` }
                 }
