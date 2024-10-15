@@ -7,7 +7,7 @@ export function getPaymentData(amount: number, locationId: string): PaymentData 
             location_id: locationId,
             line_items: [
                 {
-                    name: "Service Payment",
+                    name: "Cash App Service Payment",
                     quantity: "1",
                     base_price_money: { amount: amount * 100, currency: "USD" }
                 }
