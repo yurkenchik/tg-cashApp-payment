@@ -1,6 +1,6 @@
 import {InjectBot, Start, Update} from "nestjs-telegraf";
 import {Context, Telegraf} from "telegraf";
-import {PaymentService} from "./payment.service";
+import {PaymentService} from "./services/payment.service";
 import {Injectable} from "@nestjs/common";
 
 @Update()
