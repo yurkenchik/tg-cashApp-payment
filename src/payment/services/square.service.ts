@@ -11,7 +11,7 @@ export class SquareService {
         private readonly configService: ConfigService,
     ) {
         this.client = new Client({
-            environment: Environment.Sandbox,
+            environment: Environment.Production,
             accessToken: this.configService.get<string>('SQUARE_SANDBOX_ACCESS_TOKEN'),
         })
     }
@@ -41,6 +41,7 @@ export class SquareService {
                     card: false,
                 }
             })
+            console.log("API RESPONSE: ", response);
             if (response.result.paymentLink) {
                 return response.result.paymentLink.url;
             } else {
